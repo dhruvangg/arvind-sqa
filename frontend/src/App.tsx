@@ -102,6 +102,22 @@ export const App: React.FC = () => {
   }, [refreshData]);
 
   // Handle Offline / Online Listeners
+  const triggerOfflineSync = useCallback(async () => {
+    if (getOfflineQueue().length === 0) return;
+    setIsSyncing(true);
+    try {
+      const { syncedCount } = await flushOfflineQueue();
+      setOfflineCount(getOfflineQueue().length);
+      if (syncedCount > 0) {
+        await refreshData();
+      }
+    } catch (e) {
+      console.error('Sync failed', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [refreshData]);
+
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
@@ -120,28 +136,17 @@ export const App: React.FC = () => {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('arvind_offline_queue_changed', handleQueueChange);
 
+    // If online on initial mount and queue has pending items, auto-sync
+    if (navigator.onLine && getOfflineQueue().length > 0) {
+      triggerOfflineSync();
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('arvind_offline_queue_changed', handleQueueChange);
     };
-  }, []);
-
-  const triggerOfflineSync = async () => {
-    if (getOfflineQueue().length === 0) return;
-    setIsSyncing(true);
-    try {
-      const { syncedCount } = await flushOfflineQueue();
-      setOfflineCount(getOfflineQueue().length);
-      if (syncedCount > 0) {
-        await refreshData();
-      }
-    } catch (e) {
-      console.error('Sync failed', e);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
+  }, [triggerOfflineSync]);
 
   // Submit Defect Handler
   const handleCreateInspection = async (payload: InspectionCreatePayload): Promise<boolean> => {
@@ -192,6 +197,76 @@ export const App: React.FC = () => {
     localStorage.setItem('arvind_supervisor_profile', JSON.stringify(newSup));
   };
 
+  // Convert queued offline items to displayable Inspection items
+  const offlineInspections: Inspection[] = getOfflineQueue().map((item, idx) => ({
+    id: -(idx + 1), // local negative pseudo-id
+    date: item.payload.date,
+    line_id: item.payload.line_id,
+    defect_type: item.payload.defect_type,
+    severity: item.payload.severity,
+    remarks: item.payload.remarks,
+    status: 'Open',
+    supervisor_name: item.payload.supervisor_name,
+    source: 'OFFLINE_PENDING',
+    created_at: new Date(item.queuedAt).toISOString(),
+    updated_at: new Date(item.queuedAt).toISOString(),
+  }));
+
+  // Filter offline inspections according to active filters
+  const filteredOfflineInspections = offlineInspections.filter((item) => {
+    if (statusFilter !== 'All' && statusFilter !== 'Open') return false;
+    if (severityFilter !== 'All' && item.severity !== severityFilter) return false;
+    if (startDate && item.date < startDate) return false;
+    if (endDate && item.date > endDate) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        item.line_id.toLowerCase().includes(q) ||
+        item.defect_type.toLowerCase().includes(q) ||
+        (item.remarks && item.remarks.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
+  const allDisplayInspections = [...filteredOfflineInspections, ...inspections];
+
+  // Adjust summary to include pending local defects
+  const displaySummary: InspectionSummary | null = summary
+    ? {
+        ...summary,
+        open_total: summary.open_total + offlineCount,
+        grand_total: summary.grand_total + offlineCount,
+        critical: {
+          ...summary.critical,
+          open:
+            summary.critical.open +
+            offlineInspections.filter((i) => i.severity === 'Critical').length,
+          total:
+            summary.critical.total +
+            offlineInspections.filter((i) => i.severity === 'Critical').length,
+        },
+        major: {
+          ...summary.major,
+          open:
+            summary.major.open +
+            offlineInspections.filter((i) => i.severity === 'Major').length,
+          total:
+            summary.major.total +
+            offlineInspections.filter((i) => i.severity === 'Major').length,
+        },
+        minor: {
+          ...summary.minor,
+          open:
+            summary.minor.open +
+            offlineInspections.filter((i) => i.severity === 'Minor').length,
+          total:
+            summary.minor.total +
+            offlineInspections.filter((i) => i.severity === 'Minor').length,
+        },
+      }
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Mobile viewport wrapper constrained to max-w-md (390px - 448px) */}
@@ -239,7 +314,7 @@ export const App: React.FC = () => {
         <main className="flex-1 px-4 py-2 space-y-4 pb-20 overflow-y-auto">
           {/* Defect Severity Summary (Always visible or in feed tab) */}
           <SummaryCards
-            summary={summary}
+            summary={displaySummary}
             activeSeverityFilter={severityFilter}
             onSelectSeverity={(sev) => {
               setSeverityFilter(sev);
@@ -259,9 +334,10 @@ export const App: React.FC = () => {
           ) : (
             <div className="animate-fadeIn">
               <InspectionList
-                inspections={inspections}
+                inspections={allDisplayInspections}
                 isLoading={isLoading}
                 onOpenResolveModal={(insp) => setSelectedForResolve(insp)}
+                onSyncOffline={triggerOfflineSync}
                 severityFilter={severityFilter}
                 setSeverityFilter={setSeverityFilter}
                 statusFilter={statusFilter}

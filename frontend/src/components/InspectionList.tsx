@@ -19,6 +19,7 @@ interface InspectionListProps {
   inspections: Inspection[];
   isLoading: boolean;
   onOpenResolveModal: (inspection: Inspection) => void;
+  onSyncOffline?: () => void;
   severityFilter: string;
   setSeverityFilter: (s: string) => void;
   statusFilter: string;
@@ -39,6 +40,7 @@ export const InspectionList: React.FC<InspectionListProps> = ({
   inspections,
   isLoading,
   onOpenResolveModal,
+  onSyncOffline,
   severityFilter,
   setSeverityFilter,
   statusFilter,
@@ -328,13 +330,18 @@ export const InspectionList: React.FC<InspectionListProps> = ({
               {/* Card Header: Machine ID + Status */}
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-extrabold text-xs text-slate-900 tracking-tight">
                       {insp.line_id}
                     </span>
                     {insp.source === 'SAP_WEBHOOK' && (
                       <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 border border-indigo-200">
                         <Cpu className="w-2.5 h-2.5" /> SAP QM
+                      </span>
+                    )}
+                    {insp.source === 'OFFLINE_PENDING' && (
+                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                        <Clock className="w-2.5 h-2.5 text-amber-600 animate-pulse" /> Pending Sync
                       </span>
                     )}
                   </div>
@@ -381,13 +388,23 @@ export const InspectionList: React.FC<InspectionListProps> = ({
                   <span className="text-[11px] text-slate-400 font-medium">
                     Logged by {insp.supervisor_name || 'Supervisor'}
                   </span>
-                  <button
-                    onClick={() => onOpenResolveModal(insp)}
-                    className="px-3 py-1.5 rounded-xl bg-arvind-700 hover:bg-arvind-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95 touch-target"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>Resolve Defect</span>
-                  </button>
+                  {insp.source === 'OFFLINE_PENDING' ? (
+                    <button
+                      onClick={onSyncOffline}
+                      className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95 touch-target"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Sync Now</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onOpenResolveModal(insp)}
+                      className="px-3 py-1.5 rounded-xl bg-arvind-700 hover:bg-arvind-800 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-1 active:scale-95 touch-target"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Resolve Defect</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

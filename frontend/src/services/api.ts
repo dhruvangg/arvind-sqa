@@ -7,7 +7,18 @@ import {
   SupervisorProfile,
 } from '../types';
 
-const API_BASE = '/api';
+const getApiBase = (): string => {
+  if (typeof window !== 'undefined') {
+    // In local development (port 3000 / 5173), direct connect to backend on port 8000
+    if (window.location.port === '3000' || window.location.port === '5173') {
+      const hostname = window.location.hostname || '127.0.0.1';
+      return `http://${hostname}:8000/api`;
+    }
+  }
+  return '/api';
+};
+
+const API_BASE = getApiBase();
 
 export interface InspectionFilterParams {
   severity?: string;
