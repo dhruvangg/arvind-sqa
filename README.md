@@ -1,79 +1,83 @@
-# Arvind Limited — Quality Inspection Tracker
+# Arvind Limited: Quality Inspection Tracker
 
-> **Shop-floor Fabric Defect Logging, Tracking & Resolution System**  
-> Built for shop-floor supervisors across Arvind's manufacturing plants (Naroda & Santej, Gujarat). Replaces manual paper registers and batch spreadsheets with a mobile-first, offline-resilient web application.
+Shop-floor defect logging, tracking, and resolution system for supervisors across Arvind manufacturing units. Replaces manual paper registers and delayed spreadsheet entry with a mobile-first, offline-ready web application.
 
 ---
 
-## ⚡ Quick Start (< 5 Minutes)
+## Setup Guide
 
-### Option A: With Docker Compose (Recommended)
-
-Make sure Docker and Docker Compose are installed and running, then:
+Run the complete multi-container stack using Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-- **Mobile Web App:** [http://localhost:3000](http://localhost:3000)
-- **FastAPI Interactive Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Check Endpoint:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
+Once started:
+- Web Application: http://localhost:3000
+- Backend REST API: http://localhost:8000
+- Interactive API Documentation (Swagger): http://localhost:8000/docs
+- Health Check: http://localhost:8000/api/health
 
-*(Preloaded with realistic seed defect records from Naroda and Santej plants upon first boot)*
-
----
-
-### Option B: Local Development (Without Docker)
-
-#### 1. Backend (Python 3.10+)
-```bash
-# From repository root
-python3 -m venv backend/venv
-source backend/venv/bin/activate
-pip install -r backend/requirements.txt
-
-# Run backend API server on port 8000
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### 2. Frontend (Node.js 18+)
-```bash
-# In a separate terminal tab
-cd frontend
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your mobile browser or desktop browser in responsive mode (`390px` width).
+The database auto-seeds with realistic textile defect records on first boot so all features are visible immediately.
 
 ---
 
-## 📱 Mobile-First UX (Tested at 390px)
+## Architecture Decisions
 
-The user interface is designed specifically for plant shop-floor supervisors holding a smartphone on the plant floor:
-- **Optimized for 390px:** Tested against iPhone 12/13/14/15 standard width (`390 x 844`).
-- **Touch-Friendly Targets:** All buttons, dropdowns, and chips have a minimum 44px tap target.
-- **Fast Logging Form:** Defaults to today's date, 1-tap severity chip selectors (Critical / Major / Minor), quick machine name suggestion chips (`Loom #14`, `Dyeing Jet #03`, etc.).
-- **Severity Summary Matrix:** Real-time matrix cards showing Open and Resolved counts categorized by severity. Tapping any severity card instantly filters the feed.
-- **Sortable & Filterable Feed:** Filter by Severity, Status (Open / Resolved), and Date range, with free-text search across machine IDs, remarks, and defect types.
-- **Mandatory Resolution Sign-off:** Clear modal enforcing corrective action description before an issue can transition to `Resolved`.
+1. **FastAPI (Python) for Backend**: Python is the standard language across analytics and ML pipelines. FastAPI delivers high performance with asynchronous request handling, automatic OpenAPI documentation, and strict request/response data validation via Pydantic v2 schemas.
+
+2. **SQLite Storage with PostgreSQL Compatibility**: SQLite was chosen as the default storage engine because it runs in a single mounted container volume without requiring external database provisioning. The database layer uses SQLAlchemy ORM, so switching to a production PostgreSQL database only requires updating the `DATABASE_URL` environment variable.
+
+3. **React with Vite, TypeScript, and Tailwind CSS**: Vite produces fast development reloads and a lean static production bundle. Tailwind CSS provides utility-first responsive styling with custom Arvind brand tokens, and TypeScript prevents runtime type mismatches across the frontend codebase.
+
+4. **Dedicated Route Architecture with React Router**: The application separates the dashboard and feed (`/`) from the defect entry screen (`/new`). This prevents visual clutter, keeps the logging interface fast on mobile phones, and provides bookmarkable browser routes.
 
 ---
 
-## 🌟 Bonus Features Implemented
+## Core Features & Testing
 
-### 1. Offline Mode & Background Sync
-- Operates reliably in factory areas with spotty Wi-Fi / cellular connectivity.
-- When offline (`navigator.onLine === false` or network failure), logged defects are automatically saved into a client-side queue in `localStorage`.
-- A prominent status banner displays pending local records and sync status.
-- Once connectivity is restored, the app automatically triggers a background queue flush, syncing all pending records to the backend without supervisor intervention.
+### 1. Defect Logging (`/new`)
+Supervisors can log quality issues directly from plant lines:
+- Date picker defaulting to current date
+- Free-text Machine / Line ID with quick suggestion chips (`Loom #14`, `Dyeing Jet #03`, etc.)
+- Defect type dropdown: Weave Defect, Shade Variation, Hole/Tear, Count Deviation, Other
+- Severity selector: Critical, Major, Minor
+- Optional remarks field for observations
 
-### 2. Mock SAP Quality Management (QM) Webhook
-- Exposes `POST /api/sap-webhook` to receive automated inspection lot notifications from SAP QM or automated optical vision inspection systems.
-- Normalizes incoming SAP defect codes and severity levels into standard application enums.
-- Built-in UI simulator: Click the **"SAP"** button in the top navigation bar to test payloads directly from the browser, or use the cURL command below.
+### 2. Defect Feed & Server-Side Pagination (`/`)
+- Paginated table/cards powered by backend pagination parameters (`page` and `page_size`)
+- Configurable items per page (10, 25, 50)
+- Search filter across machine IDs, defect descriptions, and remarks
+- Severity filter (All, Critical, Major, Minor)
+- Status filter (All, Open, Resolved)
+- Date range filter (from date, to date)
+- Sortable by date, severity, machine ID, and status
 
-#### Expected SAP Webhook Payload Shape:
+### 3. Defect Resolution Flow
+- Every open defect includes an action to resolve
+- Opens a resolution dialog requiring a mandatory corrective action note (blank entries rejected)
+- Records timestamp and the supervisor who signed off on the fix
+
+### 4. Severity Summary Matrix (`/`)
+- Prominent cards displaying counts of Open and Resolved issues categorized by Critical, Major, and Minor severity
+- Displays real-time resolution progress bars
+- Clicking any severity card filters the feed below
+
+---
+
+## Bonus Implementations
+
+### Offline Support and Local Storage Sync
+Factory floors often experience intermittent network drops. When offline:
+- Newly logged defects are queued in client storage (`localStorage`)
+- An amber status banner alerts the user of pending local records
+- Queued records display in the feed with a "Pending Sync" tag
+- As soon as network connectivity is restored, the application flushes the queue to the backend automatically
+
+### Mock SAP Quality Management Webhook
+The backend exposes `POST /api/sap-webhook` to ingest automated quality notifications from SAP QM or optical inspection systems. It maps incoming defect codes and severity strings to standard application enums and registers the defect in the system.
+
+Expected Payload Format:
 ```json
 {
   "notification_id": "QM-2026-90412",
@@ -81,13 +85,13 @@ The user interface is designed specifically for plant shop-floor supervisors hol
   "work_center": "WEAVING-LOOM-22",
   "material_code": "DENIM-STRETCH-12OZ",
   "defect_code": "DEF_WEAVE_BROKEN_PICK",
-  "defect_description": "Weave Defect - Missing Pick Across Roll",
+  "defect_description": "Weave Defect: Missing Pick Across Roll",
   "severity": "Critical",
   "notes": "Automated vision scanner flagged continuous pick irregularity on loom beam #4."
 }
 ```
 
-#### Test with cURL:
+Sample cURL request:
 ```bash
 curl -X POST http://localhost:8000/api/sap-webhook \
   -H "Content-Type: application/json" \
@@ -97,113 +101,82 @@ curl -X POST http://localhost:8000/api/sap-webhook \
     "work_center": "WEAVING-LOOM-22",
     "material_code": "DENIM-STRETCH-12OZ",
     "defect_code": "DEF_WEAVE_BROKEN_PICK",
-    "defect_description": "Weave Defect - Missing Pick Across Roll",
+    "defect_description": "Weave Defect: Missing Pick Across Roll",
     "severity": "Critical",
     "notes": "Automated vision scanner flagged continuous pick irregularity on loom beam #4."
   }'
 ```
 
-### 3. Lightweight Supervisor Authentication
-- Provides shift attribution (`POST /api/auth/login`) allowing supervisors to sign off under their profile (e.g. Ramesh Patel, Pooja Shah, or custom supervisor name).
-- Profile is persisted in browser storage and attaches supervisor metadata to defects and resolutions.
+An interactive test modal is accessible via the "SAP Webhook" button in the header.
+
+### Supervisor Profile Switching
+Supports shifting between supervisor profiles (Ramesh Patel, Pooja Shah, or a custom name). The active profile is stored in local session state and attached to defect creation and resolution audits.
 
 ---
 
-## 🏛️ Architecture Decisions
+## What We Would Do Differently With More Time
 
-1. **FastAPI (Python) for Backend:**  
-   FastAPI was chosen because Arvind's AI & Analytics team works predominantly with Python data pipelines and ML models. It provides native asynchronous performance, automatic OpenAPI/Swagger documentation, and Pydantic v2 data validation with zero boilerplate.
-
-2. **SQLite by Default with PostgreSQL Compatibility:**  
-   SQLite was selected as the default storage engine because it requires zero external service setup, stores data reliably in a single file or mounted Docker volume, and allows reviewers to evaluate the system in under 60 seconds without database connectivity friction. The SQLAlchemy ORM abstraction enables switching to PostgreSQL in production simply by providing the `DATABASE_URL` environment variable.
-
-3. **React + Vite + Tailwind CSS for Frontend:**  
-   Vite provides sub-second builds and lean asset bundles (~58 KB gzipped). Tailwind CSS enables rapid development of a mobile-first, utility-based UI with precise viewport control (`max-w-md` centered layout) and high-contrast color coding for critical shop-floor alerts.
-
-4. **Two-Tier Docker Compose with Nginx Reverse Proxy:**  
-   The frontend is compiled via a multi-stage Docker build and served by an Alpine Nginx container that acts as a reverse proxy for `/api` requests to the backend. This eliminates CORS complications in production, serves static assets with gzip compression, and mirrors standard enterprise deployment topology.
+1. **Progressive Web App (PWA) with Service Worker**: Add a service worker manifest and cache storage to make the app installable on Android and iOS devices, allowing plant supervisors to launch it from their home screen without opening a browser URL bar.
+2. **Defect Photo Capture**: Implement camera capture so supervisors can snap photos of fabric flaws directly from their phones, with image compression and S3/MinIO storage.
+3. **Enterprise Single Sign-On (SSO)**: Replace lightweight supervisor profiles with Azure Active Directory / OAuth2 integration tied into corporate employee directories.
+4. **Automated Defect Alerts**: Send automated push notifications or SMS alerts to maintenance leads whenever a Critical defect is logged.
 
 ---
 
-## 🔮 What We Would Do Differently With More Time
+## Automated Backend Tests
 
-1. **Progressive Web App (PWA) with Service Worker:**  
-   Package the application as an installable PWA with a Service Worker cache for offline static assets and Background Sync API registration, allowing shop-floor supervisors to launch the app directly from their home screen like a native Android/iOS application.
-2. **Camera Defect Attachment & OCR/Vision AI:**  
-   Add a mobile camera upload button allowing supervisors to snap pictures of fabric defects, using a lightweight vision model (or OpenCV) to auto-classify weave anomalies and estimate defect severity directly in the browser or via backend inference.
-3. **Role-Based Access Control (RBAC) & OAuth2/SSO:**  
-   Integrate enterprise single sign-on (such as Arvind corporate Microsoft Azure AD / Okta) and enforce granular permissions (e.g., Shop Supervisor can log defects, Quality Manager can approve resolutions, Plant Head has read-only analytics).
-4. **Export to SAP ERP / Excel:**  
-   Add one-click export of filtered defect reports to Excel (.xlsx) and a bi-directional SAP RFC/OData connector to close the loop on maintenance work orders.
+The project includes unit and integration tests covering CRUD operations, validation rules, pagination, filtering, mandatory resolution notes, and the SAP webhook.
 
----
-
-## 🧪 Automated Testing
-
-Run the backend test suite:
-
+To run tests in the backend environment:
 ```bash
 PYTHONPATH=. ./backend/venv/bin/pytest backend/tests -v
 ```
 
-The test suite validates:
-- API health check (`GET /api/health`)
-- Inspection creation and Pydantic validation rules (`POST /api/inspections`)
-- Severity and status filtering, date range queries, and keyword search
-- Defect resolution flow and enforcement of mandatory resolution notes (`PATCH /api/inspections/{id}/resolve`)
-- Aggregated defect severity count matrix calculations (`GET /api/inspections/summary`)
-- Mock SAP QM Webhook ingestion and defect normalization (`POST /api/sap-webhook`)
-
 ---
 
-## 📂 Project Directory Structure
+## Project Structure
 
 ```
 SQA/
-├── docker-compose.yml         # Container orchestration
-├── .dockerignore              # Root dockerignore
-├── .gitignore                 # Git ignore patterns
-├── .env.example               # Environment variables template
-├── README.md                  # Project documentation & design decisions
-│
-├── backend/                   # FastAPI REST API Backend
-│   ├── Dockerfile             # Multi-stage Python 3.11 container
-│   ├── requirements.txt       # Dependencies (FastAPI, SQLAlchemy, Pydantic, pytest)
+├── docker-compose.yml         # Multi-container orchestration
+├── README.md                  # Project documentation
+├── backend/                   # FastAPI backend service
+│   ├── Dockerfile             # Python 3.11 container definition
+│   ├── requirements.txt       # Python dependencies
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py            # App entry, lifespan, CORS, route registration
-│   │   ├── database.py        # SQLAlchemy engine & session maker
-│   │   ├── models.py          # Database schema (Inspection model)
-│   │   ├── schemas.py         # Pydantic validation schemas
-│   │   ├── crud.py            # Query logic, filtering, sorting, summary matrix
-│   │   ├── seed.py            # Realistic plant defect sample data
+│   │   ├── main.py            # Application entry point and router registry
+│   │   ├── database.py        # SQLAlchemy database engine and session
+│   │   ├── models.py          # Database models
+│   │   ├── schemas.py         # Pydantic schemas and validation
+│   │   ├── crud.py            # Database operations and summary calculations
+│   │   ├── seed.py            # Initial seed dataset
 │   │   └── routers/
-│   │       ├── inspections.py # Core inspection CRUD endpoints
-│   │       ├── sap.py         # Mock SAP QM webhook integration
-│   │       └── auth.py        # Lightweight supervisor authentication
+│   │       ├── inspections.py # Inspection endpoints and pagination
+│   │       ├── sap.py         # SAP QM webhook endpoint
+│   │       └── auth.py        # Supervisor authentication
 │   └── tests/
 │       └── test_inspections.py# Automated pytest suite
-│
-└── frontend/                  # React + TypeScript + Vite + Tailwind Mobile UI
-    ├── Dockerfile             # Multi-stage build + Nginx Alpine
-    ├── nginx.conf             # Nginx reverse proxy & SPA routing
+└── frontend/                  # React + TypeScript frontend
+    ├── Dockerfile             # Multi-stage build with Nginx
+    ├── nginx.conf             # Nginx reverse proxy configuration
     ├── package.json
     ├── vite.config.ts
     ├── tailwind.config.js
-    ├── index.html
     └── src/
-        ├── App.tsx            # Main state orchestrator & mobile container
-        ├── main.tsx           # React entry point
-        ├── types/             # TypeScript type definitions
-        ├── services/
-        │   ├── api.ts         # REST API client
-        │   └── offlineSync.ts # Offline queue & auto-sync manager
-        └── components/
-            ├── Header.tsx     # Arvind branding, online/offline status, SAP toggle
-            ├── SummaryCards.tsx# Severity summary count matrix
-            ├── InspectionForm.tsx# Fast mobile-first defect logging form
-            ├── InspectionList.tsx# Sortable, filterable defect list
-            ├── ResolveModal.tsx# Mandatory resolution note modal
-            ├── SapWebhookModal.tsx# Built-in SAP QM webhook tester
-            └── LoginModal.tsx # Supervisor profile switcher
+        ├── App.tsx            # Main layout and route definitions
+        ├── pages/
+        │   ├── InspectionListPage.tsx   # Route / (Feed, Summary, Pagination)
+        │   └── InspectionCreatePage.tsx # Route /new (Focused Log Form)
+        ├── components/
+        │   ├── Header.tsx     # Arvind brand header and status banner
+        │   ├── Pagination.tsx # Server-side pagination controls
+        │   ├── SummaryCards.tsx # Severity summary counts
+        │   ├── InspectionList.tsx # Defect feed cards
+        │   ├── InspectionForm.tsx # Logging form
+        │   ├── ResolveModal.tsx   # Mandatory resolution modal
+        │   ├── SapWebhookModal.tsx# In-browser SAP webhook tester
+        │   └── Toast.tsx      # Feedback toast notifications
+        └── services/
+            ├── api.ts         # REST client
+            └── offlineSync.ts # Offline queue and sync manager
 ```
