@@ -83,11 +83,20 @@ export async function getInspectionSummary(): Promise<InspectionSummary> {
   return response.json();
 }
 
+const getAuthHeaders = (): Record<string, string> => {
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('arvind_auth_token');
+    if (token) return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+};
+
 export async function createInspection(payload: InspectionCreatePayload): Promise<Inspection> {
   const response = await fetch(`${API_BASE}/inspections`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(payload),
   });
@@ -107,6 +116,7 @@ export async function resolveInspection(
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(payload),
   });
