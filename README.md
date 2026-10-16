@@ -18,6 +18,18 @@ Once started:
 - Interactive API Documentation (Swagger): http://localhost:8000/docs
 - Health Check: http://localhost:8000/api/health
 
+### Sample Login Credentials
+
+Use any of the following pre-configured supervisor accounts to sign in:
+
+| Username | Password | Full Name | Role | Plant Location |
+| :--- | :--- | :--- | :--- | :--- |
+| `ramesh` | `arvind123` | Ramesh Patel | Weaving Shift Supervisor | Naroda Weaving Unit |
+| `pooja` | `arvind123` | Pooja Shah | Plant Quality Lead | Santej Denim Plant |
+| `vikram` | `arvind123` | Vikram Desai | Spinning Shift Supervisor | Naroda Spinning Unit |
+
+The web portal login screen also features 1-click demo buttons to sign in instantly with any of these accounts.
+
 The database auto-seeds with realistic textile defect records on first boot so all features are visible immediately.
 
 ---
