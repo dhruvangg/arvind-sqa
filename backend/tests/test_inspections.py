@@ -50,11 +50,17 @@ def test_health_check():
 
 
 def test_list_inspections_and_summary():
-    # Verify initial seeded inspections
-    response = client.get("/api/inspections")
+    # Verify initial seeded inspections with pagination
+    response = client.get("/api/inspections?page=1&page_size=10")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) >= 5
+    assert "items" in data
+    assert "total" in data
+    assert "page" in data
+    assert "page_size" in data
+    assert "total_pages" in data
+    assert len(data["items"]) >= 5
+    assert data["total"] >= 5
 
     # Check summary counts
     sum_resp = client.get("/api/inspections/summary")
@@ -107,19 +113,24 @@ def test_filter_and_search_inspections():
     # Filter by severity = Critical
     crit_resp = client.get("/api/inspections?severity=Critical")
     assert crit_resp.status_code == 200
-    for item in crit_resp.json():
+    crit_data = crit_resp.json()
+    assert "items" in crit_data
+    for item in crit_data["items"]:
         assert item["severity"] == "Critical"
 
     # Filter by status = Open
     open_resp = client.get("/api/inspections?status=Open")
     assert open_resp.status_code == 200
-    for item in open_resp.json():
+    open_data = open_resp.json()
+    assert "items" in open_data
+    for item in open_data["items"]:
         assert item["status"] == "Open"
 
     # Search keyword
     search_resp = client.get("/api/inspections?search=Naroda")
     assert search_resp.status_code == 200
-    assert len(search_resp.json()) > 0
+    search_data = search_resp.json()
+    assert len(search_data["items"]) > 0
 
 
 def test_resolve_inspection_flow():

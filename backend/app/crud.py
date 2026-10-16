@@ -27,9 +27,11 @@ def get_inspections(
     search: Optional[str] = None,
     sort_by: str = "date",
     sort_order: str = "desc",
-    skip: int = 0,
-    limit: int = 100,
-) -> List[Inspection]:
+    page: int = 1,
+    page_size: int = 10,
+    skip: Optional[int] = None,
+    limit: Optional[int] = None,
+) -> tuple[List[Inspection], int, int, int, int]:
     query = db.query(Inspection)
 
     # Filter by severity
@@ -67,6 +69,9 @@ def get_inspections(
             )
         )
 
+    # Total matching records before pagination
+    total = query.count()
+
     # Sorting
     sort_column = Inspection.date
     if sort_by == "severity":
@@ -83,7 +88,24 @@ def get_inspections(
     else:
         query = query.order_by(desc(sort_column), desc(Inspection.id))
 
-    return query.offset(skip).limit(limit).all()
+    # Calculate pagination offset & limit
+    if skip is not None:
+        effective_page_size = limit if limit is not None else 10
+        effective_page = (skip // effective_page_size) + 1
+        items = query.offset(skip).limit(effective_page_size).all()
+    else:
+        effective_page = max(1, page)
+        effective_page_size = max(1, min(100, page_size))
+        offset = (effective_page - 1) * effective_page_size
+        items = query.offset(offset).limit(effective_page_size).all()
+
+    total_pages = (
+        max(1, (total + effective_page_size - 1) // effective_page_size)
+        if total > 0
+        else 1
+    )
+
+    return items, total, effective_page, effective_page_size, total_pages
 
 
 def create_inspection(

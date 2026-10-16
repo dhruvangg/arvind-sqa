@@ -3,6 +3,7 @@ import {
   InspectionCreatePayload,
   InspectionResolvePayload,
   InspectionSummary,
+  PaginatedInspections,
   SapWebhookPayload,
   SupervisorProfile,
 } from '../types';
@@ -28,9 +29,11 @@ export interface InspectionFilterParams {
   search?: string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
+  page?: number;
+  page_size?: number;
 }
 
-export async function getInspections(params?: InspectionFilterParams): Promise<Inspection[]> {
+export async function getInspections(params?: InspectionFilterParams): Promise<PaginatedInspections> {
   const query = new URLSearchParams();
   if (params) {
     if (params.severity && params.severity !== 'All') query.append('severity', params.severity);
@@ -40,6 +43,8 @@ export async function getInspections(params?: InspectionFilterParams): Promise<I
     if (params.search) query.append('search', params.search);
     if (params.sort_by) query.append('sort_by', params.sort_by);
     if (params.sort_order) query.append('sort_order', params.sort_order);
+    if (params.page) query.append('page', params.page.toString());
+    if (params.page_size) query.append('page_size', params.page_size.toString());
   }
 
   const url = `${API_BASE}/inspections${query.toString() ? `?${query.toString()}` : ''}`;

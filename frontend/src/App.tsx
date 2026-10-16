@@ -1,30 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import {
   Inspection,
-  InspectionSummary,
   InspectionCreatePayload,
   InspectionResolvePayload,
   SupervisorProfile,
 } from './types';
-import {
-  getInspections,
-  getInspectionSummary,
-  createInspection,
-  resolveInspection,
-} from './services/api';
+import { createInspection, resolveInspection } from './services/api';
 import {
   getOfflineQueue,
   enqueueOfflineInspection,
   flushOfflineQueue,
 } from './services/offlineSync';
 import { Header } from './components/Header';
-import { SummaryCards } from './components/SummaryCards';
-import { InspectionForm } from './components/InspectionForm';
-import { InspectionList } from './components/InspectionList';
 import { ResolveModal } from './components/ResolveModal';
 import { SapWebhookModal } from './components/SapWebhookModal';
 import { LoginModal } from './components/LoginModal';
-import { Plus, ListFilter, BarChart3, RefreshCw } from 'lucide-react';
+import { ToastContainer, ToastMessage } from './components/Toast';
+import { InspectionListPage } from './pages/InspectionListPage';
+import { InspectionCreatePage } from './pages/InspectionCreatePage';
+import { Plus, ListFilter, RefreshCw } from 'lucide-react';
 
 const DEFAULT_SUPERVISOR: SupervisorProfile = {
   username: 'ramesh',
@@ -34,31 +29,17 @@ const DEFAULT_SUPERVISOR: SupervisorProfile = {
   token: 'tok_ramesh_naroda_supervisor',
 };
 
-export const App: React.FC = () => {
-  // Navigation tabs for mobile screen
-  const [activeTab, setActiveTab] = useState<'feed' | 'create'>('feed');
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const isCreateRoute = location.pathname === '/new';
 
-  // Core Data State
-  const [inspections, setInspections] = useState<Inspection[]>([]);
-  const [summary, setSummary] = useState<InspectionSummary | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  // Filters & Sorting State
-  const [severityFilter, setSeverityFilter] = useState<string>('All');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortBy, setSortBy] = useState<string>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-
-  // Offline & Network State
+  // Network & Offline Queue
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
   const [offlineCount, setOfflineCount] = useState<number>(() => getOfflineQueue().length);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  // Modals & Supervisor State
+  // Supervisor Profile
   const [supervisor, setSupervisor] = useState<SupervisorProfile>(() => {
     try {
       const stored = localStorage.getItem('arvind_supervisor_profile');
@@ -67,57 +48,51 @@ export const App: React.FC = () => {
       return DEFAULT_SUPERVISOR;
     }
   });
+
+  // Modals & UI
   const [selectedForResolve, setSelectedForResolve] = useState<Inspection | null>(null);
   const [isSapModalOpen, setIsSapModalOpen] = useState<boolean>(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Load inspections and summary from API
-  const refreshData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [listData, summaryData] = await Promise.all([
-        getInspections({
-          severity: severityFilter,
-          status: statusFilter,
-          start_date: startDate || undefined,
-          end_date: endDate || undefined,
-          search: searchQuery || undefined,
-          sort_by: sortBy,
-          sort_order: sortOrder,
-        }),
-        getInspectionSummary(),
-      ]);
-      setInspections(listData);
-      setSummary(summaryData);
-    } catch (err) {
-      console.error('Failed to load inspections:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [severityFilter, statusFilter, startDate, endDate, searchQuery, sortBy, sortOrder]);
+  // Toast notifications
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Initial load & filter changes
-  useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+  const addToast = (type: 'success' | 'error' | 'info', message: string) => {
+    const id = Date.now().toString();
+    setToasts((prev) => [...prev, { id, type, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
 
-  // Handle Offline / Online Listeners
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Sync Offline Queue
   const triggerOfflineSync = useCallback(async () => {
     if (getOfflineQueue().length === 0) return;
     setIsSyncing(true);
     try {
-      const { syncedCount } = await flushOfflineQueue();
+      const { syncedCount, errors } = await flushOfflineQueue();
       setOfflineCount(getOfflineQueue().length);
       if (syncedCount > 0) {
-        await refreshData();
+        addToast('success', `${syncedCount} offline defect(s) synchronized successfully`);
+        setRefreshTrigger((prev) => prev + 1);
       }
-    } catch (e) {
+      if (errors.length > 0) {
+        addToast('error', `Sync issues: ${errors[0]}`);
+      }
+    } catch (e: any) {
       console.error('Sync failed', e);
+      addToast('error', 'Synchronization failed');
     } finally {
       setIsSyncing(false);
     }
-  }, [refreshData]);
+  }, []);
 
+  // Listeners for network & storage
   useEffect(() => {
     const handleOnline = async () => {
       setIsOnline(true);
@@ -126,6 +101,7 @@ export const App: React.FC = () => {
 
     const handleOffline = () => {
       setIsOnline(false);
+      addToast('info', 'Offline mode active. Inspections will queue locally.');
     };
 
     const handleQueueChange = () => {
@@ -136,7 +112,7 @@ export const App: React.FC = () => {
     window.addEventListener('offline', handleOffline);
     window.addEventListener('arvind_offline_queue_changed', handleQueueChange);
 
-    // If online on initial mount and queue has pending items, auto-sync
+    // Auto-sync on startup if online
     if (navigator.onLine && getOfflineQueue().length > 0) {
       triggerOfflineSync();
     }
@@ -148,28 +124,28 @@ export const App: React.FC = () => {
     };
   }, [triggerOfflineSync]);
 
-  // Submit Defect Handler
+  // Create Defect Handler
   const handleCreateInspection = async (payload: InspectionCreatePayload): Promise<boolean> => {
     setIsSubmitting(true);
     try {
       if (!isOnline) {
-        // Queue offline
         enqueueOfflineInspection(payload);
         setOfflineCount(getOfflineQueue().length);
-        setActiveTab('feed');
+        addToast('info', 'Defect saved locally (Offline mode)');
+        setRefreshTrigger((prev) => prev + 1);
         return true;
       }
 
       await createInspection(payload);
-      await refreshData();
-      setActiveTab('feed');
+      addToast('success', `Defect on ${payload.line_id} logged successfully`);
+      setRefreshTrigger((prev) => prev + 1);
       return true;
     } catch (err: any) {
       console.warn('API submission failed, queuing offline:', err);
-      // Fallback to offline queue on network/server error
       enqueueOfflineInspection(payload);
       setOfflineCount(getOfflineQueue().length);
-      setActiveTab('feed');
+      addToast('info', 'Defect saved locally (Pending sync)');
+      setRefreshTrigger((prev) => prev + 1);
       return true;
     } finally {
       setIsSubmitting(false);
@@ -183,95 +159,26 @@ export const App: React.FC = () => {
   ): Promise<boolean> => {
     try {
       await resolveInspection(id, payload);
-      await refreshData();
+      addToast('success', `Inspection #${id} marked as Resolved`);
+      setRefreshTrigger((prev) => prev + 1);
       return true;
-    } catch (err) {
-      console.error('Failed to resolve inspection:', err);
+    } catch (err: any) {
+      addToast('error', err.message || 'Failed to resolve defect');
       throw err;
     }
   };
 
-  // Supervisor select
   const handleSelectSupervisor = (newSup: SupervisorProfile) => {
     setSupervisor(newSup);
     localStorage.setItem('arvind_supervisor_profile', JSON.stringify(newSup));
+    addToast('info', `Active supervisor switched to ${newSup.name}`);
   };
-
-  // Convert queued offline items to displayable Inspection items
-  const offlineInspections: Inspection[] = getOfflineQueue().map((item, idx) => ({
-    id: -(idx + 1), // local negative pseudo-id
-    date: item.payload.date,
-    line_id: item.payload.line_id,
-    defect_type: item.payload.defect_type,
-    severity: item.payload.severity,
-    remarks: item.payload.remarks,
-    status: 'Open',
-    supervisor_name: item.payload.supervisor_name,
-    source: 'OFFLINE_PENDING',
-    created_at: new Date(item.queuedAt).toISOString(),
-    updated_at: new Date(item.queuedAt).toISOString(),
-  }));
-
-  // Filter offline inspections according to active filters
-  const filteredOfflineInspections = offlineInspections.filter((item) => {
-    if (statusFilter !== 'All' && statusFilter !== 'Open') return false;
-    if (severityFilter !== 'All' && item.severity !== severityFilter) return false;
-    if (startDate && item.date < startDate) return false;
-    if (endDate && item.date > endDate) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      return (
-        item.line_id.toLowerCase().includes(q) ||
-        item.defect_type.toLowerCase().includes(q) ||
-        (item.remarks && item.remarks.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
-
-  const allDisplayInspections = [...filteredOfflineInspections, ...inspections];
-
-  // Adjust summary to include pending local defects
-  const displaySummary: InspectionSummary | null = summary
-    ? {
-        ...summary,
-        open_total: summary.open_total + offlineCount,
-        grand_total: summary.grand_total + offlineCount,
-        critical: {
-          ...summary.critical,
-          open:
-            summary.critical.open +
-            offlineInspections.filter((i) => i.severity === 'Critical').length,
-          total:
-            summary.critical.total +
-            offlineInspections.filter((i) => i.severity === 'Critical').length,
-        },
-        major: {
-          ...summary.major,
-          open:
-            summary.major.open +
-            offlineInspections.filter((i) => i.severity === 'Major').length,
-          total:
-            summary.major.total +
-            offlineInspections.filter((i) => i.severity === 'Major').length,
-        },
-        minor: {
-          ...summary.minor,
-          open:
-            summary.minor.open +
-            offlineInspections.filter((i) => i.severity === 'Minor').length,
-          total:
-            summary.minor.total +
-            offlineInspections.filter((i) => i.severity === 'Minor').length,
-        },
-      }
-    : null;
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
-      {/* Mobile viewport wrapper constrained to max-w-md (390px - 448px) */}
-      <div className="w-full max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col shadow-xl border-x border-slate-200/80">
-        {/* Arvind Branded Header */}
+      {/* Centered responsive container (optimized for 390px, expands gracefully on tablet/desktop) */}
+      <div className="w-full max-w-xl mx-auto min-h-screen bg-slate-50 flex flex-col shadow-xl border-x border-slate-200">
+        {/* Arvind Official Header */}
         <Header
           isOnline={isOnline}
           offlineCount={offlineCount}
@@ -282,120 +189,98 @@ export const App: React.FC = () => {
           onOpenSapModal={() => setIsSapModalOpen(true)}
         />
 
-        {/* Tab Toggle Bar */}
+        {/* Tab Navigation Pill Bar */}
         <div className="px-4 pt-3 pb-1">
-          <div className="bg-slate-200/80 p-1 rounded-xl flex items-center">
-            <button
-              onClick={() => setActiveTab('feed')}
+          <div className="bg-slate-200/70 p-1 rounded-xl flex items-center border border-slate-200">
+            <Link
+              to="/"
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'feed'
-                  ? 'bg-white text-arvind-800 shadow-xs'
+                !isCreateRoute
+                  ? 'bg-white text-arvind-700 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ListFilter className="w-4 h-4" />
               <span>Inspection Feed</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('create')}
+            </Link>
+            <Link
+              to="/new"
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'create'
+                isCreateRoute
                   ? 'bg-arvind-700 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Plus className="w-4 h-4" />
               <span>Log Defect</span>
-            </button>
+            </Link>
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <main className="flex-1 px-4 py-2 space-y-4 pb-20 overflow-y-auto">
-          {/* Defect Severity Summary (Always visible or in feed tab) */}
-          <SummaryCards
-            summary={displaySummary}
-            activeSeverityFilter={severityFilter}
-            onSelectSeverity={(sev) => {
-              setSeverityFilter(sev);
-              setActiveTab('feed');
-            }}
-            isLoading={isLoading}
-          />
-
-          {activeTab === 'create' ? (
-            <div className="animate-fadeIn">
-              <InspectionForm
-                onSubmit={handleCreateInspection}
-                supervisor={supervisor}
-                isSubmitting={isSubmitting}
-              />
-            </div>
-          ) : (
-            <div className="animate-fadeIn">
-              <InspectionList
-                inspections={allDisplayInspections}
-                isLoading={isLoading}
-                onOpenResolveModal={(insp) => setSelectedForResolve(insp)}
-                onSyncOffline={triggerOfflineSync}
-                severityFilter={severityFilter}
-                setSeverityFilter={setSeverityFilter}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                startDate={startDate}
-                setStartDate={setStartDate}
-                endDate={endDate}
-                setEndDate={setEndDate}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            </div>
-          )}
+        {/* Dynamic Route Content */}
+        <main className="flex-1 px-4 py-2 pb-24 overflow-y-auto">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <InspectionListPage
+                  onOpenResolveModal={(insp) => setSelectedForResolve(insp)}
+                  onSyncOffline={triggerOfflineSync}
+                  refreshTrigger={refreshTrigger}
+                />
+              }
+            />
+            <Route
+              path="/new"
+              element={
+                <InspectionCreatePage
+                  onSubmit={handleCreateInspection}
+                  supervisor={supervisor}
+                  isSubmitting={isSubmitting}
+                />
+              }
+            />
+          </Routes>
         </main>
 
-        {/* Fixed Mobile Bottom Bar */}
+        {/* Mobile Fixed Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200">
-          <div className="max-w-md mx-auto px-6 py-2 flex items-center justify-between">
-            <button
-              onClick={() => setActiveTab('feed')}
+          <div className="max-w-xl mx-auto px-6 py-2.5 flex items-center justify-between">
+            <Link
+              to="/"
               className={`flex flex-col items-center gap-0.5 text-[10px] font-bold ${
-                activeTab === 'feed' ? 'text-arvind-700' : 'text-slate-400 hover:text-slate-600'
+                !isCreateRoute ? 'text-arvind-700 font-extrabold' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
-              <BarChart3 className="w-5 h-5" />
-              <span>Feed & Stats</span>
-            </button>
+              <ListFilter className="w-5 h-5" />
+              <span>Inspections</span>
+            </Link>
 
-            {/* Prominent Quick-Add Circle Button */}
-            <button
-              onClick={() => setActiveTab('create')}
-              className={`-mt-6 p-3.5 rounded-full shadow-lg border-2 border-white transition-all transform active:scale-95 ${
-                activeTab === 'create'
+            {/* Quick-Add Circle Button */}
+            <Link
+              to="/new"
+              className={`-mt-6 p-3.5 rounded-full shadow-md border-2 border-white transition-all transform active:scale-95 ${
+                isCreateRoute
                   ? 'bg-arvind-900 text-white'
                   : 'bg-arvind-700 hover:bg-arvind-800 text-white'
               }`}
               title="Log New Defect"
             >
               <Plus className="w-6 h-6 stroke-[2.5]" />
-            </button>
+            </Link>
 
             <button
-              onClick={refreshData}
-              disabled={isLoading}
-              className="flex flex-col items-center gap-0.5 text-[10px] font-bold text-slate-400 hover:text-slate-600 disabled:opacity-50"
+              onClick={() => setRefreshTrigger((prev) => prev + 1)}
+              className="flex flex-col items-center gap-0.5 text-[10px] font-bold text-slate-400 hover:text-slate-600"
             >
-              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin text-arvind-600' : ''}`} />
+              <RefreshCw className="w-5 h-5" />
               <span>Refresh</span>
             </button>
           </div>
         </nav>
       </div>
 
-      {/* Modals */}
+      {/* Modals & Dialogs */}
       <ResolveModal
         inspection={selectedForResolve}
         isOpen={Boolean(selectedForResolve)}
@@ -407,7 +292,7 @@ export const App: React.FC = () => {
       <SapWebhookModal
         isOpen={isSapModalOpen}
         onClose={() => setIsSapModalOpen(false)}
-        onSuccess={refreshData}
+        onSuccess={() => setRefreshTrigger((prev) => prev + 1)}
       />
 
       <LoginModal
@@ -416,7 +301,18 @@ export const App: React.FC = () => {
         currentSupervisor={supervisor}
         onSelectSupervisor={handleSelectSupervisor}
       />
+
+      {/* Production Toast Notifications */}
+      <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
   );
 };
 

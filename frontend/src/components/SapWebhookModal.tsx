@@ -64,7 +64,7 @@ export const SapWebhookModal: React.FC<SapWebhookModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center space-x-2">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+            <div className="p-2 bg-arvind-50 text-arvind-700 rounded-xl">
               <Cpu className="w-5 h-5" />
             </div>
             <div>
@@ -155,7 +155,7 @@ export const SapWebhookModal: React.FC<SapWebhookModalProps> = ({
             <button
               onClick={handleSend}
               disabled={isSubmitting}
-              className="px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 disabled:opacity-60"
+              className="px-4 py-1.5 rounded-xl bg-arvind-700 hover:bg-arvind-800 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 disabled:opacity-60"
             >
               {isSubmitting ? (
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

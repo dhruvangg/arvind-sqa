@@ -83,6 +83,14 @@ class InspectionResponse(InspectionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PaginatedInspectionsResponse(BaseModel):
+    items: List[InspectionResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
 class SeverityCount(BaseModel):
     open: int = 0
     resolved: int = 0

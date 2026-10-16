@@ -41,6 +41,14 @@ export interface InspectionResolvePayload {
   resolved_by?: string;
 }
 
+export interface PaginatedInspections {
+  items: Inspection[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export interface SeverityCount {
   open: number;
   resolved: number;

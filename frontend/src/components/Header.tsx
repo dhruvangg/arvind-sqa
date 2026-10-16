@@ -1,4 +1,6 @@
-import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu } from 'lucide-react';
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu, Plus, ListFilter } from 'lucide-react';
 import { SupervisorProfile } from '../types';
 
 interface HeaderProps {
@@ -20,47 +22,81 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogin,
   onOpenSapModal,
 }) => {
+  const location = useLocation();
+  const isCreateRoute = location.pathname === '/new';
+
   return (
-    <header className="bg-arvind-700 text-white sticky top-0 z-30 shadow-md">
-      {/* Top corporate bar */}
-      <div className="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-arvind-500 border border-blue-300/30 flex items-center justify-center font-extrabold text-base tracking-wider text-white shadow-inner">
+    <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+      {/* Top Corporate Branding Bar */}
+      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+        {/* Arvind Official Wordmark & App Identity */}
+        <Link to="/" className="flex items-center space-x-3 group">
+          {/* Arvind Heritage Crimson Monogram Icon */}
+          <div className="w-9 h-9 rounded-lg bg-arvind-700 flex items-center justify-center text-white font-extrabold text-lg tracking-wider shadow-sm group-hover:bg-arvind-800 transition-colors">
             A
           </div>
           <div>
-            <h1 className="text-base font-bold leading-tight tracking-tight flex items-center gap-1.5">
-              Arvind Limited
-              <span className="text-[10px] font-semibold bg-blue-500/30 text-blue-200 px-1.5 py-0.5 rounded border border-blue-400/20">
-                AI & SQA
+            <div className="flex items-center gap-2">
+              <span className="text-base font-extrabold tracking-tight text-slate-900 group-hover:text-arvind-700 transition-colors">
+                Arvind
               </span>
-            </h1>
-            <p className="text-[11px] text-blue-200/80 font-medium">
-              Shop-floor Quality Inspection
+              <span className="text-slate-300 font-light">|</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-arvind-700">
+                Quality Tracker
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium tracking-tight">
+              Fabric Manufacturing · Naroda & Santej Plants
             </p>
           </div>
-        </div>
+        </Link>
 
-        {/* Right side controls */}
-        <div className="flex items-center space-x-1.5">
-          {/* SAP Webhook Simulation Button */}
+        {/* Header Right Actions */}
+        <div className="flex items-center space-x-2">
+          {/* Desktop Navigation Links */}
+          <nav className="hidden sm:flex items-center space-x-1 mr-2">
+            <Link
+              to="/"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                !isCreateRoute
+                  ? 'bg-arvind-50 text-arvind-700 font-bold border border-arvind-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <ListFilter className="w-3.5 h-3.5" />
+              <span>Inspections</span>
+            </Link>
+            <Link
+              to="/new"
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                isCreateRoute
+                  ? 'bg-arvind-700 text-white font-bold shadow-xs'
+                  : 'text-arvind-700 hover:bg-arvind-50'
+              }`}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Log Defect</span>
+            </Link>
+          </nav>
+
+          {/* SAP Integration Tester Trigger */}
           <button
             onClick={onOpenSapModal}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-600/40 hover:bg-blue-600/60 border border-blue-400/30 text-blue-100 transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
             title="Simulate SAP QM Webhook"
           >
-            <Cpu className="w-3.5 h-3.5 text-blue-300" />
-            <span className="hidden xs:inline">SAP</span>
+            <Cpu className="w-3.5 h-3.5 text-arvind-700" />
+            <span className="hidden xs:inline">SAP Webhook</span>
           </button>
 
-          {/* Supervisor Switch */}
+          {/* Supervisor Switcher */}
           <button
             onClick={onOpenLogin}
-            className="flex items-center space-x-1 px-2 py-1 text-xs rounded-md bg-arvind-800/80 hover:bg-arvind-800 border border-blue-400/20 text-slate-200"
-            title="Switch Supervisor"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
+            title="Active Supervisor"
           >
-            <UserCheck className="w-3.5 h-3.5 text-blue-300" />
-            <span className="truncate max-w-[85px] text-[11px] font-medium">
+            <UserCheck className="w-3.5 h-3.5 text-arvind-700" />
+            <span className="truncate max-w-[90px] text-xs font-semibold text-slate-800">
               {supervisor.name.split(' ')[0]}
             </span>
           </button>
@@ -69,17 +105,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Network & Offline Status Banner */}
       {(!isOnline || offlineCount > 0) && (
-        <div className="bg-amber-500 text-amber-950 px-4 py-1.5 text-xs font-semibold flex items-center justify-between transition-all">
-          <div className="flex items-center space-x-1.5">
+        <div className="bg-amber-500 text-amber-950 px-4 py-2 text-xs font-semibold flex items-center justify-between transition-all border-t border-amber-600/30">
+          <div className="flex items-center space-x-2">
             {!isOnline ? (
               <>
-                <WifiOff className="w-4 h-4 text-amber-900 animate-pulse" />
-                <span>Offline Mode (Local Storage active)</span>
+                <WifiOff className="w-4 h-4 text-amber-950 animate-pulse" />
+                <span>Offline Mode (Inspections saved locally)</span>
               </>
             ) : (
               <>
-                <Wifi className="w-4 h-4 text-emerald-800" />
-                <span>Online · {offlineCount} pending local inspection{offlineCount > 1 ? 's' : ''}</span>
+                <Wifi className="w-4 h-4 text-emerald-950" />
+                <span>Online · {offlineCount} pending local defect{offlineCount > 1 ? 's' : ''}</span>
               </>
             )}
           </div>
@@ -87,10 +123,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onSyncOffline}
               disabled={!isOnline || isSyncing}
-              className="ml-2 px-2 py-0.5 rounded bg-amber-900 text-white text-[11px] font-bold flex items-center gap-1 hover:bg-black disabled:opacity-50"
+              className="ml-2 px-3 py-1 rounded-md bg-amber-950 text-white text-xs font-bold flex items-center gap-1.5 hover:bg-black disabled:opacity-50 transition-colors shadow-xs"
             >
-              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : `Sync (${offlineCount})`}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : `Sync Now (${offlineCount})`}</span>
             </button>
           )}
         </div>

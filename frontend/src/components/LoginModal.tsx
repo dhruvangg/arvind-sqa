@@ -105,7 +105,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   onClick={() => handleSelectPreset(sup.key)}
                   className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition-all ${
                     isActive
-                      ? 'border-arvind-600 bg-blue-50/50'
+                      ? 'border-arvind-700 bg-arvind-50/60'
                       : 'border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -116,7 +116,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     </div>
                   </div>
                   {isActive && (
-                    <ShieldCheck className="w-4 h-4 text-arvind-600 shrink-0" />
+                    <ShieldCheck className="w-4 h-4 text-arvind-700 shrink-0" />
                   )}
                 </button>
               );
@@ -134,12 +134,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   placeholder="e.g. Anand Joshi"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-arvind-500"
+                  className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-arvind-700"
                 />
                 <button
                   type="submit"
                   disabled={isLoading || !customName.trim()}
-                  className="px-3 py-1.5 rounded-xl bg-arvind-700 text-white text-xs font-bold disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-xl bg-arvind-700 hover:bg-arvind-800 text-white text-xs font-bold disabled:opacity-50"
                 >
                   Set
                 </button>

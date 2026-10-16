@@ -9,13 +9,14 @@ from backend.app.schemas import (
     InspectionResponse,
     InspectionResolve,
     InspectionSummaryResponse,
+    PaginatedInspectionsResponse,
 )
 from backend.app import crud
 
 router = APIRouter(prefix="/api/inspections", tags=["Inspections"])
 
 
-@router.get("", response_model=List[InspectionResponse])
+@router.get("", response_model=PaginatedInspectionsResponse)
 def list_inspections(
     severity: Optional[str] = Query(
         None, description="Filter by severity: Critical, Major, Minor, or All"
@@ -40,12 +41,14 @@ def list_inspections(
     sort_order: str = Query(
         "desc", pattern="^(asc|desc)$", description="Sort direction (asc or desc)"
     ),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    skip: Optional[int] = Query(None, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     db: Session = Depends(get_db),
 ):
-    """Retrieve all logged inspections with optional filtering, search, and sorting."""
-    return crud.get_inspections(
+    """Retrieve all logged inspections with server-side pagination, filtering, search, and sorting."""
+    items, total, eff_page, eff_page_size, total_pages = crud.get_inspections(
         db=db,
         severity=severity,
         status=status,
@@ -54,9 +57,18 @@ def list_inspections(
         search=search,
         sort_by=sort_by,
         sort_order=sort_order,
+        page=page,
+        page_size=page_size,
         skip=skip,
         limit=limit,
     )
+    return {
+        "items": items,
+        "total": total,
+        "page": eff_page,
+        "page_size": eff_page_size,
+        "total_pages": total_pages,
+    }
 
 
 @router.get("/summary", response_model=InspectionSummaryResponse)
