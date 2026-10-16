@@ -1,6 +1,6 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu, Plus, ListFilter } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu } from 'lucide-react';
 import { SupervisorProfile } from '../types';
 
 interface HeaderProps {
@@ -22,9 +22,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLogin,
   onOpenSapModal,
 }) => {
-  const location = useLocation();
-  const isCreateRoute = location.pathname === '/new';
-
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
       {/* Top Corporate Branding Bar */}
@@ -45,40 +42,11 @@ export const Header: React.FC<HeaderProps> = ({
                 Quality Tracker
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium tracking-tight">
-              Fabric Manufacturing · Naroda & Santej Plants
-            </p>
           </div>
         </Link>
 
         {/* Header Right Actions */}
         <div className="flex items-center space-x-2">
-          {/* Desktop Navigation Links */}
-          <nav className="hidden sm:flex items-center space-x-1 mr-2">
-            <Link
-              to="/"
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
-                !isCreateRoute
-                  ? 'bg-arvind-50 text-arvind-700 font-bold border border-arvind-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              }`}
-            >
-              <ListFilter className="w-3.5 h-3.5" />
-              <span>Inspections</span>
-            </Link>
-            <Link
-              to="/new"
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
-                isCreateRoute
-                  ? 'bg-arvind-700 text-white font-bold shadow-xs'
-                  : 'text-arvind-700 hover:bg-arvind-50'
-              }`}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Log Defect</span>
-            </Link>
-          </nav>
-
           {/* SAP Integration Tester Trigger */}
           <button
             onClick={onOpenSapModal}

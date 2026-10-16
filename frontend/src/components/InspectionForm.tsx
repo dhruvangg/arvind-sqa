@@ -115,10 +115,6 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({
             </p>
           </div>
         </div>
-
-        <span className="hidden sm:inline-block text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-          Plant: {supervisor.plant.includes('Naroda') ? 'Naroda Unit' : 'Santej Plant'}
-        </span>
       </div>
 
       {successNotice && (
