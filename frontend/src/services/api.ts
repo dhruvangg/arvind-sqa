@@ -53,7 +53,26 @@ export async function getInspections(params?: InspectionFilterParams): Promise<P
     const err = await response.json().catch(() => ({ detail: 'Failed to fetch inspections' }));
     throw new Error(err.detail || 'Failed to fetch inspections');
   }
-  return response.json();
+  const data = await response.json();
+
+  // Defensive normalization: handles both plain array and paginated object response
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      total: data.length,
+      page: params?.page || 1,
+      page_size: params?.page_size || 10,
+      total_pages: Math.ceil(data.length / (params?.page_size || 10)) || 1,
+    };
+  }
+
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    total: typeof data?.total === 'number' ? data.total : (data?.items?.length || 0),
+    page: data?.page || 1,
+    page_size: data?.page_size || 10,
+    total_pages: data?.total_pages || 1,
+  };
 }
 
 export async function getInspectionSummary(): Promise<InspectionSummary> {

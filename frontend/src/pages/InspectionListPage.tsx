@@ -110,10 +110,13 @@ export const InspectionListPage: React.FC<InspectionListPageProps> = ({
     return true;
   });
 
+  const rawItems = Array.isArray(paginatedData?.items) ? paginatedData.items : [];
   const displayItems =
-    page === 1 ? [...filteredOfflineItems, ...paginatedData.items] : paginatedData.items;
+    page === 1 ? [...filteredOfflineItems, ...rawItems] : rawItems;
 
-  const displayTotal = paginatedData.total + (page === 1 ? filteredOfflineItems.length : 0);
+  const displayTotal =
+    (typeof paginatedData?.total === 'number' ? paginatedData.total : rawItems.length) +
+    (page === 1 ? filteredOfflineItems.length : 0);
 
   return (
     <div className="space-y-4 animate-fadeIn">
