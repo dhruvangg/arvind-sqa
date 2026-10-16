@@ -201,3 +201,47 @@ def test_mock_sap_webhook_integration():
     assert res_data["inspection"]["severity"] == "Critical"
     assert res_data["inspection"]["source"] == "SAP_WEBHOOK"
     assert res_data["inspection"]["sap_notification_id"] == "SAP-QM-2026-99120"
+
+
+def test_supervisor_authentication():
+    # 1. Invalid password returns 401
+    bad_login = client.post(
+        "/api/auth/login",
+        json={"username": "ramesh", "password": "wrongpassword"},
+    )
+    assert bad_login.status_code == 401
+    assert "Invalid username or password" in bad_login.json()["detail"]
+
+    # 2. Unknown user returns 401
+    unknown_login = client.post(
+        "/api/auth/login",
+        json={"username": "unknown_user", "password": "arvind123"},
+    )
+    assert unknown_login.status_code == 401
+
+    # 3. Valid credentials return 200 and session token
+    good_login = client.post(
+        "/api/auth/login",
+        json={"username": "ramesh", "password": "arvind123"},
+    )
+    assert good_login.status_code == 200
+    user_data = good_login.json()
+    assert user_data["username"] == "ramesh"
+    assert user_data["name"] == "Ramesh Patel"
+    assert "token" in user_data
+    token = user_data["token"]
+
+    # 4. Access /me with valid token
+    me_resp = client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_resp.status_code == 200
+    assert me_resp.json()["username"] == "ramesh"
+
+    # 5. Access /me with bad token returns 401
+    bad_me = client.get(
+        "/api/auth/me",
+        headers={"Authorization": "Bearer bad_invalid_token"},
+    )
+    assert bad_me.status_code == 401

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import {
   Inspection,
   InspectionCreatePayload,
   InspectionResolvePayload,
   SupervisorProfile,
 } from './types';
-import { createInspection, resolveInspection } from './services/api';
+import { createInspection, resolveInspection, logoutSupervisor } from './services/api';
 import {
   getOfflineQueue,
   enqueueOfflineInspection,
@@ -15,22 +15,15 @@ import {
 import { Header } from './components/Header';
 import { ResolveModal } from './components/ResolveModal';
 import { SapWebhookModal } from './components/SapWebhookModal';
-import { LoginModal } from './components/LoginModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { InspectionListPage } from './pages/InspectionListPage';
 import { InspectionCreatePage } from './pages/InspectionCreatePage';
+import { LoginPage } from './pages/LoginPage';
 import { Plus, ListFilter, RefreshCw } from 'lucide-react';
-
-const DEFAULT_SUPERVISOR: SupervisorProfile = {
-  username: 'ramesh',
-  name: 'Ramesh Patel',
-  role: 'Weaving Shift Supervisor',
-  plant: 'Naroda Weaving Unit',
-  token: 'tok_ramesh_naroda_supervisor',
-};
 
 const AppContent: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isCreateRoute = location.pathname === '/new';
 
   // Network & Offline Queue
@@ -39,20 +32,19 @@ const AppContent: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  // Supervisor Profile
-  const [supervisor, setSupervisor] = useState<SupervisorProfile>(() => {
+  // Authenticated Supervisor Profile
+  const [supervisor, setSupervisor] = useState<SupervisorProfile | null>(() => {
     try {
       const stored = localStorage.getItem('arvind_supervisor_profile');
-      return stored ? JSON.parse(stored) : DEFAULT_SUPERVISOR;
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return DEFAULT_SUPERVISOR;
+      return null;
     }
   });
 
   // Modals & UI
   const [selectedForResolve, setSelectedForResolve] = useState<Inspection | null>(null);
   const [isSapModalOpen, setIsSapModalOpen] = useState<boolean>(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Toast notifications
@@ -68,6 +60,27 @@ const AppContent: React.FC = () => {
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const handleLoginSuccess = (profile: SupervisorProfile) => {
+    setSupervisor(profile);
+    localStorage.setItem('arvind_supervisor_profile', JSON.stringify(profile));
+    if (profile.token) {
+      localStorage.setItem('arvind_auth_token', profile.token);
+    }
+    addToast('success', `Welcome back, ${profile.name}`);
+  };
+
+  const handleLogout = async () => {
+    const token = supervisor?.token || localStorage.getItem('arvind_auth_token');
+    if (token) {
+      await logoutSupervisor(token);
+    }
+    setSupervisor(null);
+    localStorage.removeItem('arvind_auth_token');
+    localStorage.removeItem('arvind_supervisor_profile');
+    addToast('info', 'Signed out successfully');
+    navigate('/login');
   };
 
   // Sync Offline Queue
@@ -168,12 +181,20 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const handleSelectSupervisor = (newSup: SupervisorProfile) => {
-    setSupervisor(newSup);
-    localStorage.setItem('arvind_supervisor_profile', JSON.stringify(newSup));
-    addToast('info', `Active supervisor switched to ${newSup.name}`);
-  };
+  // Unauthenticated view
+  if (!supervisor) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+        <Routes>
+          <Route path="/login" element={<LoginPage onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      </div>
+    );
+  }
 
+  // Authenticated workspace view
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Centered responsive container (optimized for 390px, expands gracefully on tablet/desktop) */}
@@ -185,7 +206,7 @@ const AppContent: React.FC = () => {
           onSyncOffline={triggerOfflineSync}
           isSyncing={isSyncing}
           supervisor={supervisor}
-          onOpenLogin={() => setIsLoginModalOpen(true)}
+          onLogout={handleLogout}
           onOpenSapModal={() => setIsSapModalOpen(true)}
         />
 
@@ -220,6 +241,7 @@ const AppContent: React.FC = () => {
         {/* Dynamic Route Content */}
         <main className="flex-1 px-4 py-2 pb-24 overflow-y-auto">
           <Routes>
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route
               path="/"
               element={
@@ -240,6 +262,7 @@ const AppContent: React.FC = () => {
                 />
               }
             />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
 
@@ -293,13 +316,6 @@ const AppContent: React.FC = () => {
         isOpen={isSapModalOpen}
         onClose={() => setIsSapModalOpen(false)}
         onSuccess={() => setRefreshTrigger((prev) => prev + 1)}
-      />
-
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        currentSupervisor={supervisor}
-        onSelectSupervisor={handleSelectSupervisor}
       />
 
       {/* Production Toast Notifications */}

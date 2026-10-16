@@ -109,8 +109,13 @@ curl -X POST http://localhost:8000/api/sap-webhook \
 
 An interactive test modal is accessible via the "SAP Webhook" button in the header.
 
-### Supervisor Profile Switching
-Supports shifting between supervisor profiles (Ramesh Patel, Pooja Shah, or a custom name). The active profile is stored in local session state and attached to defect creation and resolution audits.
+### Supervisor Authentication & Session Control
+Provides password-based supervisor authentication (`POST /api/auth/login`) with SHA-256 credential verification, session bearer tokens, and a dedicated Sign In page (`/login`). Routes are protected so unauthenticated users cannot record or resolve defects without logging in first.
+
+Demo accounts for review (Password: `arvind123`):
+- `ramesh` (Ramesh Patel, Weaving Shift Supervisor, Naroda Unit)
+- `pooja` (Pooja Shah, Plant Quality Lead, Santej Plant)
+- `vikram` (Vikram Desai, Spinning Shift Supervisor, Naroda Unit)
 
 ---
 
@@ -118,14 +123,14 @@ Supports shifting between supervisor profiles (Ramesh Patel, Pooja Shah, or a cu
 
 1. **Progressive Web App (PWA) with Service Worker**: Add a service worker manifest and cache storage to make the app installable on Android and iOS devices, allowing plant supervisors to launch it from their home screen without opening a browser URL bar.
 2. **Defect Photo Capture**: Implement camera capture so supervisors can snap photos of fabric flaws directly from their phones, with image compression and S3/MinIO storage.
-3. **Enterprise Single Sign-On (SSO)**: Replace lightweight supervisor profiles with Azure Active Directory / OAuth2 integration tied into corporate employee directories.
+3. **Enterprise Single Sign-On (SSO)**: Connect Azure Active Directory / SAML / OAuth2 alongside the current credential verification to integrate directly into Arvind corporate employee directories.
 4. **Automated Defect Alerts**: Send automated push notifications or SMS alerts to maintenance leads whenever a Critical defect is logged.
 
 ---
 
 ## Automated Backend Tests
 
-The project includes unit and integration tests covering CRUD operations, validation rules, pagination, filtering, mandatory resolution notes, and the SAP webhook.
+The project includes unit and integration tests covering CRUD operations, validation rules, pagination, filtering, mandatory resolution notes, supervisor authentication, and the SAP webhook.
 
 To run tests in the backend environment:
 ```bash
@@ -165,10 +170,11 @@ SQA/
     └── src/
         ├── App.tsx            # Main layout and route definitions
         ├── pages/
+        │   ├── LoginPage.tsx            # Route /login (Credential Sign In)
         │   ├── InspectionListPage.tsx   # Route / (Feed, Summary, Pagination)
         │   └── InspectionCreatePage.tsx # Route /new (Focused Log Form)
         ├── components/
-        │   ├── Header.tsx     # Arvind brand header and status banner
+        │   ├── Header.tsx     # Arvind brand header, user status, logout
         │   ├── Pagination.tsx # Server-side pagination controls
         │   ├── SummaryCards.tsx # Severity summary counts
         │   ├── InspectionList.tsx # Defect feed cards

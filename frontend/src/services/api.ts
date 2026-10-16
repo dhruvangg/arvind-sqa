@@ -136,18 +136,42 @@ export async function postSapWebhook(payload: SapWebhookPayload): Promise<any> {
 
 export async function loginSupervisor(
   username: string,
-  pin: string = '1234'
+  password: string
 ): Promise<SupervisorProfile> {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ username, pin }),
+    body: JSON.stringify({ username, password }),
   });
 
   if (!response.ok) {
-    throw new Error('Login failed');
+    const err = await response.json().catch(() => ({ detail: 'Authentication failed' }));
+    throw new Error(err.detail || 'Invalid username or password');
   }
   return response.json();
+}
+
+export async function getAuthProfile(token: string): Promise<SupervisorProfile> {
+  const response = await fetch(`${API_BASE}/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Session invalid or expired');
+  }
+  return response.json();
+}
+
+export async function logoutSupervisor(token?: string): Promise<void> {
+  if (!token) return;
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }).catch(() => {});
 }

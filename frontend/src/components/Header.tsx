@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, UserCheck, Cpu, LogOut } from 'lucide-react';
 import { SupervisorProfile } from '../types';
 
 interface HeaderProps {
@@ -8,8 +8,8 @@ interface HeaderProps {
   offlineCount: number;
   onSyncOffline: () => void;
   isSyncing: boolean;
-  supervisor: SupervisorProfile;
-  onOpenLogin: () => void;
+  supervisor: SupervisorProfile | null;
+  onLogout?: () => void;
   onOpenSapModal: () => void;
 }
 
@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSyncOffline,
   isSyncing,
   supervisor,
-  onOpenLogin,
+  onLogout,
   onOpenSapModal,
 }) => {
   return (
@@ -57,17 +57,30 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden xs:inline">SAP Webhook</span>
           </button>
 
-          {/* Supervisor Switcher */}
-          <button
-            onClick={onOpenLogin}
-            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 transition-colors"
-            title="Active Supervisor"
-          >
-            <UserCheck className="w-3.5 h-3.5 text-arvind-700" />
-            <span className="truncate max-w-[90px] text-xs font-semibold text-slate-800">
-              {supervisor.name.split(' ')[0]}
-            </span>
-          </button>
+          {/* Supervisor Status & Sign Out */}
+          {supervisor && (
+            <div className="flex items-center space-x-1.5">
+              <div
+                className="flex items-center space-x-1 px-2 py-1.5 text-xs font-medium rounded-lg bg-slate-50 border border-slate-200 text-slate-700"
+                title={`${supervisor.name} (${supervisor.role} · ${supervisor.plant})`}
+              >
+                <UserCheck className="w-3.5 h-3.5 text-arvind-700 shrink-0" />
+                <span className="truncate max-w-[85px] sm:max-w-[120px] text-xs font-semibold text-slate-800">
+                  {supervisor.name.split(' ')[0]}
+                </span>
+              </div>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-arvind-50 hover:text-arvind-700 text-slate-600 border border-slate-200 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
